@@ -1,0 +1,62 @@
+
+name: Construire APK ETS DIAWARA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ETS_DIAWARA_Gestion_Caisse_Reelle_Android.zip'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Recuperer le projet
+        uses: actions/checkout@v4
+
+      - name: Extraire le projet
+        run: |
+          mkdir -p source_project
+          unzip -q ETS_DIAWARA_Gestion_Caisse_Reelle_Android.zip -d source_project
+          PROJECT_DIR="$(find source_project -name pubspec.yaml -printf '%h\n' | head -n 1)"
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Fichier pubspec.yaml introuvable"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Installer Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Installer Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Preparer Android
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter create --platforms=android --org com.etsdiawara --project-name ets_diawara_gestion .
+
+      - name: Installer les dependances
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Construire APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter build apk --release
+
+      - name: Enregistrer APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ETS-DIAWARA-Gestion-APK
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
